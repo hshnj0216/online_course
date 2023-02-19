@@ -7,7 +7,7 @@ from .models import Course, Lesson, Instructor, Learner, Choice, Question
 
 class LessonInline(admin.StackedInline):
     model = Lesson
-    extra = 5
+    extra = 3
 
 class QuestionInline(admin.StackedInline):
     model = Question

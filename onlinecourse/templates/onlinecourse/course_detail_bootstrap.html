@@ -54,17 +54,33 @@
             <!-- <HINT> Use Bootstrap Collapse to hide exam first, more details could be found here
             https://www.w3schools.com/bootstrap4/bootstrap_collapse.asp-->
 
-            <!--
-
-            A collapse example here:
-            <div id="exam" class="collapse">
-                Click to expand elements within the collapse div
-                </div>
-
-            -->
-
             <!-- <HINT> If user is authenticated, show course exam with a list of question -->
-
+                {% if user.is_authenticated %}
+                <button class="btn btn-primary mb-2" type="button" data-toggle="collapse" data-target="#exam">Course Exam</button>
+                <div id="exam" class="collapse">
+                    <form id="questionform" action="" method="post">
+                        {% csrf_token %}
+                        {% for question in course.exam_question_set.all %}
+                            <div class="card mt-1">
+                                <div class="card-header"><h5>{{ question.question_text }}</h5></div>
+                                {% for choice in question.exam_choice_set.all %}
+                                    <div class="card-body">
+                                        <div class="form-check">
+                                            <input type="checkbox" name="choice_{{choice.id}}" id="{{choice.id}}" value="{{choice.id}}">
+                                            <label class="form-check-label" for="{{choice.id}}">
+                                                {{ choice.choice_text }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                        <input type="submit" value="Submit" class="btn btn-primary mt-2">
+                    </form>
+                </div>
+            {% else %}
+                <a href="{% url 'login' %}?next={{ request.path }}" class="btn btn-primary mb-2">Enroll Now</a>
+            {% endif %}
             <!-- <HINT> Each example will have many questions -->
 
             <!-- <HINT> Each question will have many choices -->
