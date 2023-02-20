@@ -62,6 +62,7 @@ class Course(models.Model):
     users = models.ManyToManyField(settings.AUTH_USER_MODEL, through='Enrollment')
     total_enrollment = models.IntegerField(default=0)
     is_enrolled = False
+    passing_score = models.DecimalField(max_digits=5, decimal_places=2, default=60.00)
 
     def __str__(self):
         return "Name: " + self.name + "," + \
@@ -105,9 +106,9 @@ class Question(models.Model):
     # Foreign key to lesson
     # question text
     # question grade/mark
-    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
     question_text = models.TextField()
-    grade = models.IntegerField() 
+    grade = models.IntegerField(default=1) 
 
     # <HINT> A sample model method to calculate if learner get the score of the question
     def is_get_score(self, selected_ids):
