@@ -114,25 +114,27 @@ def submit(request, course_id):
     course = get_object_or_404(Course, pk=course_id)
     user = request.user
     enrollment = get_object_or_404(Enrollment, course=course, user=user)
+    submitted_answers = extract_answers(request)
     submission = Submission.objects.create(enrollment=enrollment)
-    for question in course.question_set.all():
-        choices = []
-        for choice in question.choice_set.all():
-            choice_id = str(choice.id)
-            if choice_id in request.POST:
-                choices.append(choice)
-        submission.choices.add(*choices)
-    return redirect(reverse('onlinecourse:show_exam_result', args=[submission.id]))
+    choices_by_question = {}
+    for answer_id in submitted_answers:
+        choice = get_object_or_404(Choice, pk=answer_id)
+        question_id = choice.question_id
+        if question_id not in choices_by_question:
+            choices_by_question[question_id] = []
+        choices_by_question[question_id].append(choice)
+        submission.choices.add(choice)
+    return redirect(reverse('onlinecourse:show_exam_result', args=[course.id, submission.id]))
 
 # <HINT> A example method to collect the selected choices from the exam form from the request object
 def extract_answers(request):
-    submitted_anwsers = []
+    submitted_answers = []
     for key in request.POST:
         if key.startswith('choice'):
             value = request.POST[key]
             choice_id = int(value)
-            submitted_anwsers.append(choice_id)
-    return submitted_anwsers
+            submitted_answers.append(choice_id)
+    return submitted_answers
 
 
 # <HINT> Create an exam result view to check if learner passed exam and show their question results and result for each question,
@@ -144,22 +146,49 @@ def extract_answers(request):
 def show_exam_result(request, course_id, submission_id):
     course = get_object_or_404(Course, pk=course_id)
     submission = get_object_or_404(Submission, pk=submission_id)
-    selected_ids = submission.choices.values_list('pk', flat=True)
 
-    total_score = 0
-    num_correct = 0
+    choices = []
+    selected_ids = []
+    for question in course.question_set.all():
+        for choice in question.choices.all():
+            if choice.is_correct and choice in submission.choices.all():
+                color = 'text-success'
+                selected_ids.append(choice.id)
+            elif choice.is_correct:
+                color = 'text-warning'
+            elif choice in submission.choices.all():
+                color = 'text-danger'
+                selected_ids.append(choice.id)
+            else:
+                color = ''
+            choices.append({'question': question, 'choice': choice, 'color': color})
+
+    selected_choices_by_question = {}
     for choice in submission.choices.all():
-        if choice.is_correct:
-            num_correct += 1
-            total_score += choice.grade
+        question_id = choice.question_id
+        if question_id not in selected_choices_by_question:
+            selected_choices_by_question[question_id] = []
+        selected_choices_by_question[question_id].append(choice)
 
-    final_score = (num_correct / course.questions.count()) * 100
+    results = []
+    num_correct = 0
+    for question in course.question_set.all():
+        selected_choices = selected_choices_by_question.get(question.id, [])
+        is_correct = set(selected_choices) == set(question.choices.filter(is_correct=True))
+        if is_correct:
+            num_correct += 1
+        results.append({'question': question, 'selected_choices': selected_choices, 'is_correct': is_correct})
+
+    total_num_questions = course.question_set.count()
+    final_score = round((num_correct / total_num_questions) * 100, 2)
     passed_exam = final_score >= course.passing_score
 
     context = {
         'course': course,
-        'selected_ids': selected_ids,
+        'choices': choices,
+        'results': results,
         'final_score': final_score,
         'passed_exam': passed_exam,
+        'selected_ids': selected_ids,
     }
-    return render(request, 'exams/exam_result.html', context)
+    return render(request, 'onlinecourse/exam_result_bootstrap.html', context)
